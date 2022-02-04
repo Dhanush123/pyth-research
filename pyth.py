@@ -13,7 +13,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from pythclient.pythclient import PythClient  # noqa
 from pythclient.ratelimit import RateLimit  # noqa
 from pythclient.pythaccounts import PythPriceAccount  # noqa
-from pythclient.utils import get_key # noqa
+from pythclient.utils import get_key # noqap
+# from pythclient.solana import SolanaClient, SolanaPublicKey, SOLANA_MAINNET_HTTP_ENDPOINT, SOLANA_MAINNET_WS_ENDPOINT
 from pythclient.solana import SolanaClient, SolanaPublicKey, SOLANA_DEVNET_HTTP_ENDPOINT, SOLANA_DEVNET_WS_ENDPOINT
 
 logger.enable("pythclient")
@@ -21,10 +22,12 @@ logger.enable("pythclient")
 RateLimit.configure_default_ratelimit(overall_cps=9, method_cps=3, connection_cps=3)
 
 to_exit = False
-account_key = SolanaPublicKey("EdVCmQ9FSPcVe5YySXDPCRmc8aDQLKJ9xvYBMZPie1Vw")
+# account_key = SolanaPublicKey("JBu1AL4obBcCMqKBBxhpWCNUt136ijcuMZLFvTP7iWdB") #mainnet
+account_key = SolanaPublicKey("EdVCmQ9FSPcVe5YySXDPCRmc8aDQLKJ9xvYBMZPie1Vw") #devnet
+# solana_client = SolanaClient(endpoint=SOLANA_MAINNET_HTTP_ENDPOINT, ws_endpoint=SOLANA_MAINNET_WS_ENDPOINT)
 solana_client = SolanaClient(endpoint=SOLANA_DEVNET_HTTP_ENDPOINT, ws_endpoint=SOLANA_DEVNET_WS_ENDPOINT)
 price = PythPriceAccount(account_key, solana_client)
-latest_time = None
+prev_time, latest_time = None, None
 
 def set_to_exit(sig: Any, frame: Any):
     global to_exit
@@ -37,8 +40,12 @@ signal.signal(signal.SIGINT, set_to_exit)
 async def main():
     global to_exit, account_key, solana_client, price
     use_program = len(sys.argv) >= 2 and sys.argv[1] == "program"
+
+    # v2_first_mapping_account_key = ""
+    # v2_program_key = None
     v2_first_mapping_account_key = get_key("mainnet", "program")
     v2_program_key = get_key("mainnet", "program")
+    print(v2_first_mapping_account_key,v2_program_key)
     async with PythClient(
         first_mapping_account_key=v2_first_mapping_account_key,
         program_key=v2_program_key if use_program else None,
@@ -70,15 +77,15 @@ async def main():
         if use_program:
             await ws.program_unsubscribe(v2_program_key)
         else:
-            for account in all_prices:
-                await ws.unsubscribe(account)
+            # for account in all_prices:
+            await ws.unsubscribe(price)
         await ws.disconnect()
         print("Disconnected")
 
 async def refresh():
-  global price
+  global price, prev_time, latest_time
   await price.update()
-  time = datetime.datetime.now()
-  print("ETH/USD is", price.aggregate_price, "±", price.aggregate_price_confidence_interval, "time", time)
+  prev_time, latest_time = latest_time, datetime.datetime.now()
+  print("ETH/USD is", price.aggregate_price, "±", price.aggregate_price_confidence_interval, "time", latest_time, "diff", latest_time-prev_time if prev_time is not None else 0)
 
 asyncio.run(main())
