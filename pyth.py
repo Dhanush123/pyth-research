@@ -40,9 +40,6 @@ signal.signal(signal.SIGINT, set_to_exit)
 async def main():
     global to_exit, account_key, solana_client, price
     use_program = len(sys.argv) >= 2 and sys.argv[1] == "program"
-
-    # v2_first_mapping_account_key = ""
-    # v2_program_key = None
     v2_first_mapping_account_key = get_key("mainnet", "program")
     v2_program_key = get_key("mainnet", "program")
     print(v2_first_mapping_account_key,v2_program_key)
@@ -57,8 +54,7 @@ async def main():
             print("Subscribing to program account")
             await ws.program_subscribe(v2_program_key, await c.get_all_accounts())
         else:
-            print("Subscribing to all prices")
-            # for account in all_prices:
+            print("Subscribing to price")
             await ws.subscribe(price)
         print("Subscribed!")
 
@@ -77,7 +73,6 @@ async def main():
         if use_program:
             await ws.program_unsubscribe(v2_program_key)
         else:
-            # for account in all_prices:
             await ws.unsubscribe(price)
         await ws.disconnect()
         print("Disconnected")
