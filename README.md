@@ -10,5 +10,6 @@ Notes:
 * `pyth.py` will generate a CSV with Price, Confidence Interval, and Timestamp data.
 * `chainlink.py` will generate Timestamp data.
 * The addresses in both files are for ETH/USD price feeds.
+* 2 pre-extracted CSVs, one per file, are already available in this repository.
 
 The devnet data gathered from both files was used in this [Google Colab analysis](https://colab.research.google.com/drive/1-xB7xCSp1oPpb2LlNAX5-7LpBe2VA5uY?usp=sharing)
