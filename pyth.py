@@ -1,30 +1,27 @@
 
 from __future__ import annotations
 import asyncio
-from copy import deepcopy
-import os
 import signal
 import sys
 from typing import Any
-import datetime
-import csv 
+from datetime import datetime, timedelta
 
 from loguru import logger
 
-# sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from pythclient.pythclient import PythClient  # noqa
 from pythclient.ratelimit import RateLimit  # noqa
-from pythclient.pythaccounts import PythPriceAccount, PythProductAccount  # noqa
+from pythclient.pythaccounts import PythPriceAccount  # noqa
 from pythclient.utils import get_key # noqap
 from pythclient.solana import SolanaClient, SolanaPublicKey, SOLANA_DEVNET_HTTP_ENDPOINT, SOLANA_DEVNET_WS_ENDPOINT, SOLANA_MAINNET_WS_ENDPOINT, SOLANA_MAINNET_HTTP_ENDPOINT
+
+from utils import init_csv_writer, save_to_csv, PRICE_FEED_SYMBOL
 
 logger.enable('pythclient')
 RateLimit.configure_default_ratelimit(overall_cps=9, method_cps=3, connection_cps=3)
 
 to_exit = False
 time, price_account = None, None
-symbol = 'ETH-USD'
-filename = 'placeholder.csv'
+pyth_csv_name = 'pyth.csv'
 
 def set_to_exit(sig: Any, frame: Any):
     global to_exit
@@ -33,12 +30,16 @@ def set_to_exit(sig: Any, frame: Any):
 signal.signal(signal.SIGINT, set_to_exit)
 
 async def main():
-    global to_exit, price_account
+    global to_exit, price_account, pyth_csv_name
 
     devnet = len(sys.argv) < 2 or (len(sys.argv) >= 2 and sys.argv[1] != 'main')
     price_account = get_price_account(devnet)
-    v2_first_mapping_account_key = get_key('devnet', 'mapping') if devnet else get_key('mainnet', 'mapping')
-    init_csv_writer('devnet' if devnet else 'mainnet')
+    net_name = 'devnet' if devnet else 'mainnet'
+    v2_first_mapping_account_key = get_key(net_name, 'mapping')
+    net_name = 'devnet' if devnet else 'mainnet'
+    pyth_csv_name = f'{PRICE_FEED_SYMBOL}-chainlink-{net_name}-{datetime.now()}.csv'
+    fields = ['Price', 'Confidence Interval', 'Timestamp'] 
+    init_csv_writer(pyth_csv_name, fields)
 
     async with PythClient(first_mapping_account_key=v2_first_mapping_account_key) as pyth_client:
         watch_session = pyth_client.create_watch_session()
@@ -46,10 +47,11 @@ async def main():
         print('Subscribing to price_account')
         await watch_session.subscribe(price_account)
         print('Subscribed!')
-        end_time = datetime.datetime.now() + datetime.timedelta(minutes=1)
+        # rate limit error will probably be hit in < 10 min
+        end_time = datetime.now() + timedelta(minutes=10)
 
         update_task = asyncio.create_task(watch_session.next_update())
-        while datetime.datetime.now() < end_time:
+        while datetime.now() < end_time:
             if to_exit:
                 update_task.cancel()
                 break
@@ -63,28 +65,16 @@ async def main():
         print('Disconnected')
 
 async def get_latest_price():
-  global price_account, time
+  global price_account, time, pyth_csv_name
 
   await price_account.update()
-  time = datetime.datetime.now()
-  print(f"{symbol}: {price_account.aggregate_price} ± {price_account.aggregate_price_confidence_interval} @ {time}")
-  save_to_csv(price_account.aggregate_price, price_account.aggregate_price_confidence_interval, time)
+  time = datetime.now()
+  save_to_csv(pyth_csv_name, [price_account.aggregate_price, price_account.aggregate_price_confidence_interval, time])
+  print(f"{PRICE_FEED_SYMBOL}: {price_account.aggregate_price} ± {price_account.aggregate_price_confidence_interval} @ {time}")
 
 def get_price_account(devnet : bool) -> PythPriceAccount:
     price_account_key = SolanaPublicKey('EdVCmQ9FSPcVe5YySXDPCRmc8aDQLKJ9xvYBMZPie1Vw' if devnet else 'JBu1AL4obBcCMqKBBxhpWCNUt136ijcuMZLFvTP7iWdB')
     solana_client = SolanaClient(endpoint=SOLANA_DEVNET_HTTP_ENDPOINT if devnet else SOLANA_MAINNET_HTTP_ENDPOINT, ws_endpoint=SOLANA_DEVNET_WS_ENDPOINT if devnet else SOLANA_MAINNET_WS_ENDPOINT)
     return PythPriceAccount(price_account_key, solana_client)
-
-def init_csv_writer(net : str):
-    global filename
-    filename = f'{symbol}-pyth-{net}-{datetime.datetime.now()}.csv'
-    fields = ['Price','Confidence Interval','Timestamp'] 
-    with open(filename, 'w', encoding='utf-8') as csvfile: 
-        csvwriter = csv.writer(csvfile).writerow(fields) 
-
-def save_to_csv(price : float, confidence_interval : float, timestamp : str):
-    global filename
-    with open(filename, 'a+', encoding='utf-8') as csvfile: 
-        csvwriter = csv.writer(csvfile).writerow([price, confidence_interval, timestamp]) 
 
 asyncio.run(main())
