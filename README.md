@@ -7,7 +7,8 @@ Usage steps:
 3. To get Chainlink data, run `python chainlink.py`. Just like `pyth.py`, there's an optional first time parameter, so something like `python chainlink.py 20` is also valid. As Chainlink is only available on devnet on Solana, there's no network parameter.
 
 Notes:
-* `pyth.py` will generate a CSV with Price, Confidence Interval, and Timestamp data
-* `chainlink.py` will generate Timestamp data
+* `pyth.py` will generate a CSV with Price, Confidence Interval, and Timestamp data.
+* `chainlink.py` will generate Timestamp data.
+* The addresses in both files are for ETH/USD price feeds.
 
 The devnet data gathered from the two Python files was used in this [Google Colab analysis](https://colab.research.google.com/drive/1-xB7xCSp1oPpb2LlNAX5-7LpBe2VA5uY?usp=sharing)
