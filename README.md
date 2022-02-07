@@ -11,4 +11,4 @@ Notes:
 * `chainlink.py` will generate Timestamp data.
 * The addresses in both files are for ETH/USD price feeds.
 
-The devnet data gathered from the two Python files was used in this [Google Colab analysis](https://colab.research.google.com/drive/1-xB7xCSp1oPpb2LlNAX5-7LpBe2VA5uY?usp=sharing)
+The devnet data gathered from both files was used in this [Google Colab analysis](https://colab.research.google.com/drive/1-xB7xCSp1oPpb2LlNAX5-7LpBe2VA5uY?usp=sharing)
