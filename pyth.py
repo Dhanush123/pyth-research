@@ -29,14 +29,17 @@ def set_to_exit(sig: Any, frame: Any):
 
 signal.signal(signal.SIGINT, set_to_exit)
 
+'''
+Pyth data collection works by listening for Pyth price updates via PythClient that uses RPC and asyncio
+'''
 async def main():
     global to_exit, price_account, pyth_csv_name
 
     devnet = len(sys.argv) < 2 or (len(sys.argv) >= 2 and sys.argv[1] != 'main')
+    max_time = sys.argv[2] if len(sys.argv) >= 3 else 10 # minutes
     price_account = get_price_account(devnet)
     net_name = 'devnet' if devnet else 'mainnet'
     v2_first_mapping_account_key = get_key(net_name, 'mapping')
-    net_name = 'devnet' if devnet else 'mainnet'
     pyth_csv_name = f'{PRICE_FEED_SYMBOL}-chainlink-{net_name}-{datetime.now()}.csv'
     fields = ['Price', 'Confidence Interval', 'Timestamp'] 
     init_csv_writer(pyth_csv_name, fields)
@@ -48,7 +51,7 @@ async def main():
         await watch_session.subscribe(price_account)
         print('Subscribed!')
         # rate limit error will probably be hit in < 10 min
-        end_time = datetime.now() + timedelta(minutes=10)
+        end_time = datetime.now() + timedelta(minutes=max_time)
 
         update_task = asyncio.create_task(watch_session.next_update())
         while datetime.now() < end_time:
@@ -73,8 +76,8 @@ async def get_latest_price():
   print(f"{PRICE_FEED_SYMBOL}: {price_account.aggregate_price} ± {price_account.aggregate_price_confidence_interval} @ {time}")
 
 def get_price_account(devnet : bool) -> PythPriceAccount:
-    price_account_key = SolanaPublicKey('EdVCmQ9FSPcVe5YySXDPCRmc8aDQLKJ9xvYBMZPie1Vw' if devnet else 'JBu1AL4obBcCMqKBBxhpWCNUt136ijcuMZLFvTP7iWdB')
+    pyth_price_account_key = SolanaPublicKey('EdVCmQ9FSPcVe5YySXDPCRmc8aDQLKJ9xvYBMZPie1Vw' if devnet else 'JBu1AL4obBcCMqKBBxhpWCNUt136ijcuMZLFvTP7iWdB')
     solana_client = SolanaClient(endpoint=SOLANA_DEVNET_HTTP_ENDPOINT if devnet else SOLANA_MAINNET_HTTP_ENDPOINT, ws_endpoint=SOLANA_DEVNET_WS_ENDPOINT if devnet else SOLANA_MAINNET_WS_ENDPOINT)
-    return PythPriceAccount(price_account_key, solana_client)
+    return PythPriceAccount(pyth_price_account_key, solana_client)
 
 asyncio.run(main())
